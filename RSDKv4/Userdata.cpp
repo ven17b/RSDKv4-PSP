@@ -35,8 +35,13 @@ int sendCounter = 0;
 #if !RETRO_USE_ORIGINAL_CODE
 bool forceUseScripts         = false;
 bool forceUseScripts_Config  = false;
+#if RETRO_PLATFORM == RETRO_PSP
+bool skipStartMenu           = true;
+bool skipStartMenu_Config    = true;
+#else
 bool skipStartMenu           = false;
 bool skipStartMenu_Config    = false;
+#endif
 int disableFocusPause        = 0;
 int disableFocusPause_Config = 0;
 

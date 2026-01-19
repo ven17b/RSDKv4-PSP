@@ -53,13 +53,16 @@ typedef unsigned int uint;
 // Custom Platforms start here
 #define RETRO_UWP   (7)
 #define RETRO_LINUX (8)
+#define RETRO_PSP (9)
 
 // Platform types (Game manages platform-specific code such as HUD position using this rather than the above)
 #define RETRO_STANDARD (0)
 #define RETRO_MOBILE   (1)
 
-#if defined _WIN32
-
+#if defined __PSP__ || defined _PSP || defined PSP
+#define RETRO_PLATFORM   (RETRO_PSP)
+#define RETRO_DEVICETYPE (RETRO_STANDARD)
+#elif defined _WIN32
 #if defined WINAPI_FAMILY
 #if WINAPI_FAMILY != WINAPI_FAMILY_APP
 #define RETRO_PLATFORM   (RETRO_WIN)
@@ -96,10 +99,16 @@ typedef unsigned int uint;
 #define RETRO_DEVICETYPE (RETRO_STANDARD)
 #endif
 
+#if RETRO_PLATFORM == RETRO_PSP
+#define DEFAULT_SCREEN_XSIZE 424
+#define DEFAULT_FULLSCREEN   true
+#define DEFAULT_USE_HQ_MODES 0
+#else
 #define DEFAULT_SCREEN_XSIZE 424
 #define DEFAULT_FULLSCREEN   false
 #define RETRO_USING_MOUSE
 #define RETRO_USING_TOUCH
+#endif
 
 #ifndef BASE_PATH
 #define BASE_PATH ""
@@ -110,7 +119,7 @@ typedef unsigned int uint;
 #endif
 
 #if RETRO_PLATFORM == RETRO_WIN || RETRO_PLATFORM == RETRO_OSX || RETRO_PLATFORM == RETRO_LINUX || RETRO_PLATFORM == RETRO_UWP                       \
-    || RETRO_PLATFORM == RETRO_ANDROID
+    || RETRO_PLATFORM == RETRO_ANDROID || RETRO_PLATFORM == RETRO_PSP
 #ifdef RETRO_USE_SDL2
 #define RETRO_USING_SDL1 (0)
 #define RETRO_USING_SDL2 (1)
@@ -127,6 +136,8 @@ typedef unsigned int uint;
 #define RETRO_GAMEPLATFORM (RETRO_MOBILE)
 #elif RETRO_PLATFORM == RETRO_UWP
 #define RETRO_GAMEPLATFORM (UAP_GetRetroGamePlatform())
+#elif RETRO_PLATFORM == RETRO_PSP
+#define RETRO_GAMEPLATFORM (RETRO_STANDARD)
 #else
 #define RETRO_GAMEPLATFORM (RETRO_STANDARD)
 #endif
@@ -143,11 +154,15 @@ typedef unsigned int uint;
 #endif
 
 #ifndef RETRO_USING_OPENGL
+#if RETRO_PLATFORM == RETRO_PSP
+#define RETRO_USING_OPENGL (0)
+#else
 #define RETRO_USING_OPENGL (1)
+#endif
 #endif
 
 #define RETRO_SOFTWARE_RENDER (RETRO_RENDERTYPE == RETRO_SW_RENDER)
-//#define RETRO_HARDWARE_RENDER (RETRO_RENDERTYPE == RETRO_HW_RENDER)
+#define RETRO_HARDWARE_RENDER (RETRO_RENDERTYPE == RETRO_HW_RENDER)
 
 #if RETRO_USING_OPENGL
 #if RETRO_PLATFORM == RETRO_ANDROID
@@ -214,6 +229,8 @@ typedef unsigned int uint;
 #define RETRO_GAMEPLATFORMID (RETRO_WIN)
 #elif RETRO_PLATFORM == RETRO_UWP
 #define RETRO_GAMEPLATFORMID (UAP_GetRetroGamePlatformId())
+#elif RETRO_PLATFORM == RETRO_PSP
+#define RETRO_GAMEPLATFORMID (RETRO_WIN)
 #else
 #error Unspecified RETRO_GAMEPLATFORMID
 #endif
@@ -298,6 +315,9 @@ enum RetroGameType {
 #elif RETRO_USING_SDL1
 #include <SDL.h>
 #endif
+#include <vorbis/vorbisfile.h>
+#elif RETRO_PLATFORM == RETRO_PSP
+#include <SDL2/SDL.h>
 #include <vorbis/vorbisfile.h>
 #elif RETRO_PLATFORM == RETRO_OSX
 #include <SDL2/SDL.h>
