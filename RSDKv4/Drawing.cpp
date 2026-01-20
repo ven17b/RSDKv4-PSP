@@ -53,9 +53,9 @@ bool bilinearScaling = false;
 int InitRenderDevice()
 {
 #if RETRO_PLATFORM == RETRO_PSP
-    SCREEN_XSIZE = 400;
+    SCREEN_XSIZE = 480;
     SCREEN_CENTERX = SCREEN_XSIZE / 2;
-    SetScreenSize(SCREEN_XSIZE, 400);
+    SetScreenSize(SCREEN_XSIZE, 512);
     
     if (!PspPlatform::InitDisplay())
         return 0;

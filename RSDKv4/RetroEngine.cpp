@@ -564,9 +564,28 @@ void RetroEngine::Run()
         }
         
         ProcessInput();
-        ProcessNativeObjects();
-        FlipScreen();
         
+        switch (Engine.gameMode) {
+            case ENGINE_MAINGAME:
+                ProcessStage();
+                break;
+                
+            case ENGINE_DEVMENU:
+                ProcessStageSelect();
+                break;
+                
+            case ENGINE_INITDEVMENU:
+                Engine.LoadGameConfig("Data/Game/GameConfig.bin");
+                InitDevMenu();
+                ResetCurrentStageFolder();
+                break;
+                
+            default:
+                ProcessNativeObjects();
+                break;
+        }
+        
+        FlipScreen();
         sceDisplayWaitVblankStart();
     }
     return;
