@@ -61,6 +61,8 @@ target_compile_options(RetroEngine PRIVATE
     -fomit-frame-pointer
     -fno-exceptions
     -fno-rtti
+    -finline-functions
+    -funroll-loops
 )
 target_compile_definitions(RetroEngine PRIVATE 
     RETRO_DISABLE_LOG=1
