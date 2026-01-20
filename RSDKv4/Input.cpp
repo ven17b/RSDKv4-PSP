@@ -274,6 +274,11 @@ void controllerClose(int controllerID)
 
 void InitInputDevices()
 {
+#if RETRO_PLATFORM == RETRO_PSP
+    PrintLog("PSP: Using built-in button input");
+    return;
+#endif
+
 #if RETRO_USING_SDL2
     PrintLog("Initializing gamepads...");
 
@@ -323,6 +328,10 @@ void ReleaseInputDevices()
 
 void ProcessInput()
 {
+#if RETRO_PLATFORM == RETRO_PSP
+    return;
+#endif
+
 #if RETRO_USING_SDL2
     int length           = 0;
     const byte *keyState = SDL_GetKeyboardState(&length);

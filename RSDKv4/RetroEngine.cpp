@@ -31,6 +31,14 @@ inline int GetLowerRate(int intendRate, int targetRate)
 
 bool ProcessEvents()
 {
+#if RETRO_PLATFORM == RETRO_PSP
+    while (SDL_PollEvent(&Engine.sdlEvents)) {
+        if (Engine.sdlEvents.type == SDL_QUIT)
+            return false;
+    }
+    return true;
+#endif
+
 #if !RETRO_USE_ORIGINAL_CODE
 #if RETRO_USING_SDL1 || RETRO_USING_SDL2
     while (SDL_PollEvent(&Engine.sdlEvents)) {
@@ -276,6 +284,30 @@ bool ProcessEvents()
 
 void RetroEngine::Init()
 {
+#if RETRO_PLATFORM == RETRO_PSP
+    CalculateTrigAngles();
+    GenerateBlendLookupTable();
+    InitUserdata();
+    
+    Engine.usingDataFile = false;
+    Engine.usingBytecode = false;
+    
+    char dataPath[0x200];
+    StrCopy(dataPath, BASE_PATH);
+    StrAdd(dataPath, Engine.dataFile[0]);
+    CheckRSDKFile(dataPath);
+    
+    if (LoadGameConfig("Data/Game/GameConfig.bin")) {
+        if (InitRenderDevice()) {
+            InitFirstStage();
+            ClearScriptData();
+            initialised = true;
+            running     = true;
+        }
+    }
+    return;
+#endif
+
     CalculateTrigAngles();
     GenerateBlendLookupTable();
 
@@ -529,6 +561,20 @@ void RetroEngine::Run()
     unsigned long long targetFreq = SDL_GetPerformanceFrequency() / Engine.refreshRate;
     unsigned long long curTicks   = 0;
     unsigned long long prevTicks  = 0;
+
+#if RETRO_PLATFORM == RETRO_PSP
+    while (running) {
+        SDL_Event evt;
+        while (SDL_PollEvent(&evt)) {
+            if (evt.type == SDL_QUIT)
+                running = false;
+        }
+        
+        ProcessStage();
+        FlipScreen();
+    }
+    return;
+#endif
 
     while (running) {
 #if !RETRO_USE_ORIGINAL_CODE

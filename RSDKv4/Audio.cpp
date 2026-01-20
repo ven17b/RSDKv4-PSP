@@ -48,6 +48,11 @@ int InitAudioPlayback()
 {
     StopAllSfx(); //"init"
 
+#if RETRO_PLATFORM == RETRO_PSP
+    audioEnabled = false;
+    return true;
+#endif
+
 #if !RETRO_USE_ORIGINAL_CODE
 #if RETRO_USING_SDL1 || RETRO_USING_SDL2
     SDL_AudioSpec want;

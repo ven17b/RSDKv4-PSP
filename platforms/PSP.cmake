@@ -56,7 +56,11 @@ if(RETRO_MOD_LOADER)
 endif()
 
 target_compile_options(RetroEngine PRIVATE -O2)
-target_compile_definitions(RetroEngine PRIVATE RETRO_DISABLE_LOG=0)
+target_compile_definitions(RetroEngine PRIVATE 
+    RETRO_DISABLE_LOG=0
+    RETRO_PLATFORM=9
+    USE_SW_REN=1
+)
 target_link_libraries(RetroEngine m)
 
 create_pbp_file(TARGET RetroEngine

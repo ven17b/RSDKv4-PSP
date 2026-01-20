@@ -52,70 +52,53 @@ bool bilinearScaling = false;
 
 int InitRenderDevice()
 {
+#if RETRO_PLATFORM == RETRO_PSP
+    if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+        return 0;
+    }
+    
+    Engine.useHQModes = false;
+    Engine.window = SDL_CreateWindow("RSDKv4", 0, 0, 480, 272, SDL_WINDOW_SHOWN);
+    if (!Engine.window) {
+        return 0;
+    }
+    
+    Engine.renderer = SDL_CreateRenderer(Engine.window, -1, SDL_RENDERER_SOFTWARE | SDL_RENDERER_PRESENTVSYNC);
+    if (!Engine.renderer) {
+        return 0;
+    }
+    
+    Engine.screenBuffer = SDL_CreateTexture(Engine.renderer, SDL_PIXELFORMAT_RGB565, SDL_TEXTUREACCESS_STREAMING, SCREEN_XSIZE, SCREEN_YSIZE);
+    SDL_RenderSetLogicalSize(Engine.renderer, SCREEN_XSIZE, SCREEN_YSIZE);    
+    SetScreenSize(SCREEN_XSIZE, (SCREEN_XSIZE + 9) & -0x8);
+    
+    Engine.frameBuffer = new ushort[GFX_LINESIZE * SCREEN_YSIZE];
+    memset(Engine.frameBuffer, 0, GFX_LINESIZE * SCREEN_YSIZE * sizeof(ushort));
+    
+    Engine.isFullScreen      = true;
+    Engine.screenRefreshRate = 60;
+    
+    OBJECT_BORDER_X2 = SCREEN_XSIZE + 0x80;
+    OBJECT_BORDER_X4 = SCREEN_XSIZE + 0x20;
+    
+    return 1;
+#endif
+
     char gameTitle[0x40];
 
     sprintf(gameTitle, "%s%s", Engine.gameWindowText, Engine.usingDataFile_Config ? "" : " (Using Data Folder)");
 
 #if !RETRO_USE_ORIGINAL_CODE
 #if RETRO_USING_SDL2
-#if RETRO_PLATFORM == RETRO_PSP
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_JOYSTICK) < 0) {
-        return 0;
-    }
-#else
     SDL_Init(SDL_INIT_EVERYTHING);
-#endif
-#if RETRO_PLATFORM != RETRO_PSP
     SDL_DisableScreenSaver();
-#endif
 
     SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "nearest");
     SDL_SetHint(SDL_HINT_RENDER_VSYNC, Engine.vsync ? "1" : "0");
 
+#endif // RETRO_USING_SDL2
 
-#if RETRO_PLATFORM == RETRO_PSP
-    Engine.useHQModes = false;
-    Engine.window = SDL_CreateWindow(gameTitle, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 480, 272, SDL_WINDOW_SHOWN);
-    if (!Engine.window) {
-        return 0;
-    }
-    Engine.renderer = SDL_CreateRenderer(Engine.window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
-    if (!Engine.renderer) {
-        return 0;
-    }
-
-    displaySettings.width    = 480;
-    displaySettings.height   = 272;
-    displaySettings.offsetX  = 0;
-    displaySettings.unknown1 = 0;
-    displaySettings.unknown2 = 0;
-
-    SCREEN_XSIZE_F   = SCREEN_XSIZE;
-    SCREEN_CENTERX_F = SCREEN_CENTERX;
-
-    SDL_RenderSetLogicalSize(Engine.renderer, SCREEN_XSIZE, SCREEN_YSIZE);
-    SDL_SetRenderDrawBlendMode(Engine.renderer, SDL_BLENDMODE_BLEND);
-
-    SetScreenSize(SCREEN_XSIZE, (SCREEN_XSIZE + 9) & -0x8);
-
-#if RETRO_SOFTWARE_RENDER
-    Engine.screenBuffer = SDL_CreateTexture(Engine.renderer, SDL_PIXELFORMAT_RGB565, SDL_TEXTUREACCESS_STREAMING, SCREEN_XSIZE, SCREEN_YSIZE);
-    if (!Engine.screenBuffer) {
-        PrintLog("ERROR: failed to create screen buffer!\nerror msg: %s", SDL_GetError());
-        return 0;
-    }
-
-    Engine.frameBuffer   = new ushort[GFX_LINESIZE * SCREEN_YSIZE];
-    Engine.frameBuffer2x = new ushort[GFX_LINESIZE_DOUBLE * (SCREEN_YSIZE * 2)];
-    memset(Engine.frameBuffer, 0, (GFX_LINESIZE * SCREEN_YSIZE) * sizeof(ushort));
-    memset(Engine.frameBuffer2x, 0, GFX_LINESIZE_DOUBLE * (SCREEN_YSIZE * 2) * sizeof(ushort));
-#endif
-    Engine.texBuffer = new uint[GFX_LINESIZE * SCREEN_YSIZE];
-    memset(Engine.texBuffer, 0, (GFX_LINESIZE * SCREEN_YSIZE) * sizeof(uint));
-
-    Engine.isFullScreen      = true;
-    Engine.screenRefreshRate = 60;
-#else
+#if !RETRO_USING_SDL2
     byte flags = 0;
 #if RETRO_USING_OPENGL
     flags |= SDL_WINDOW_OPENGL;
@@ -335,8 +318,6 @@ int InitRenderDevice()
     Engine.texBuffer = new uint[GFX_LINESIZE * SCREEN_YSIZE];
     memset(Engine.texBuffer, 0, (GFX_LINESIZE * SCREEN_YSIZE) * sizeof(uint));
 
-#endif
-
 #if RETRO_PLATFORM != RETRO_PSP
     if (Engine.startFullScreen) {
         SetFullScreen(true);
@@ -354,6 +335,15 @@ int InitRenderDevice()
 }
 void FlipScreen()
 {
+#if RETRO_PLATFORM == RETRO_PSP
+    if (!Engine.frameBuffer || !Engine.screenBuffer || !Engine.renderer)
+        return;
+    SDL_UpdateTexture(Engine.screenBuffer, NULL, Engine.frameBuffer, GFX_LINESIZE * sizeof(ushort));
+    SDL_RenderCopy(Engine.renderer, Engine.screenBuffer, NULL, NULL);
+    SDL_RenderPresent(Engine.renderer);
+    return;
+#endif
+
 #if !RETRO_USE_ORIGINAL_CODE
     float dimAmount = 1.0;
     if ((!Engine.masterPaused || Engine.frameStep) && !drawStageGFXHQ) {
