@@ -565,8 +565,10 @@ void RetroEngine::Run()
             continue;
         }
         
+        Engine.deltaTime = 1.0 / 60;
+        
         ProcessInput();
-        ProcessStage();
+        ProcessNativeObjects();
         FlipScreen();
         
         sceDisplayWaitVblankStart();

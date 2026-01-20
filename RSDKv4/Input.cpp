@@ -417,11 +417,22 @@ void ProcessInput()
         inputDevice[INPUT_START].setReleased();
     }
     
+    static bool selectWasPressed = false;
     if (pspPad.Buttons & PSP_CTRL_SELECT) {
         inputDevice[INPUT_SELECT].setHeld();
         anyPressed = true;
-    } else if (inputDevice[INPUT_SELECT].hold) {
-        inputDevice[INPUT_SELECT].setReleased();
+        
+        if (!selectWasPressed) {
+            selectWasPressed = true;
+            ClearNativeObjects();
+            CREATE_ENTITY(RetroGameLoop);
+            Engine.gameMode = ENGINE_INITDEVMENU;
+        }
+    } else {
+        selectWasPressed = false;
+        if (inputDevice[INPUT_SELECT].hold) {
+            inputDevice[INPUT_SELECT].setReleased();
+        }
     }
     
     // Analog stick support
