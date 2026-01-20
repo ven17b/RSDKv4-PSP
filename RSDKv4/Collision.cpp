@@ -1026,13 +1026,13 @@ void ProcessPathGrip(Entity *entity)
 
     while (checkDist > -1) {
         if (checkDist >= 1) {
-            cosValue256 = cos256LookupTable[entity->angle] << 10;
-            sinValue256 = sin256LookupTable[entity->angle] << 10;
+            cosValue256 = Cos256(entity->angle) << 10;
+            sinValue256 = Sin256(entity->angle) << 10;
             checkDist--;
         }
         else {
-            cosValue256 = absSpeed * cos256LookupTable[entity->angle] >> 8;
-            sinValue256 = absSpeed * sin256LookupTable[entity->angle] >> 8;
+            cosValue256 = absSpeed * Cos256(entity->angle) >> 8;
+            sinValue256 = absSpeed * Sin256(entity->angle) >> 8;
             checkDist   = -1;
         }
 
@@ -1328,8 +1328,8 @@ void ProcessPathGrip(Entity *entity)
             else {
                 entity->gravity       = 1;
                 entity->collisionMode = CMODE_FLOOR;
-                entity->xvel          = cos256LookupTable[entity->angle] * entity->speed >> 8;
-                entity->yvel          = sin256LookupTable[entity->angle] * entity->speed >> 8;
+                entity->xvel          = Cos256(entity->angle) * entity->speed >> 8;
+                entity->yvel          = Sin256(entity->angle) * entity->speed >> 8;
                 if (entity->yvel < -0x100000)
                     entity->yvel = -0x100000;
 
@@ -1360,8 +1360,8 @@ void ProcessPathGrip(Entity *entity)
             if (!sensors[0].collided && !sensors[1].collided && !sensors[2].collided) {
                 entity->gravity       = 1;
                 entity->collisionMode = CMODE_FLOOR;
-                entity->xvel          = cos256LookupTable[entity->angle] * entity->speed >> 8;
-                entity->yvel          = sin256LookupTable[entity->angle] * entity->speed >> 8;
+                entity->xvel          = Cos256(entity->angle) * entity->speed >> 8;
+                entity->yvel          = Sin256(entity->angle) * entity->speed >> 8;
                 if (entity->yvel < -0x100000) {
                     entity->yvel = -0x100000;
                 }
@@ -1401,8 +1401,8 @@ void ProcessPathGrip(Entity *entity)
             if (!sensors[0].collided && !sensors[1].collided && !sensors[2].collided) {
                 entity->gravity         = 1;
                 entity->collisionMode   = CMODE_FLOOR;
-                entity->xvel            = cos256LookupTable[entity->angle] * entity->speed >> 8;
-                entity->yvel            = sin256LookupTable[entity->angle] * entity->speed >> 8;
+                entity->xvel            = Cos256(entity->angle) * entity->speed >> 8;
+                entity->yvel            = Sin256(entity->angle) * entity->speed >> 8;
                 entity->floorSensors[0] = false;
                 entity->floorSensors[1] = false;
                 entity->floorSensors[2] = false;
@@ -1469,8 +1469,8 @@ void ProcessPathGrip(Entity *entity)
             if (!sensors[0].collided && !sensors[1].collided && !sensors[2].collided) {
                 entity->gravity       = 1;
                 entity->collisionMode = CMODE_FLOOR;
-                entity->xvel          = cos256LookupTable[entity->angle] * entity->speed >> 8;
-                entity->yvel          = sin256LookupTable[entity->angle] * entity->speed >> 8;
+                entity->xvel          = Cos256(entity->angle) * entity->speed >> 8;
+                entity->yvel          = Sin256(entity->angle) * entity->speed >> 8;
                 if (entity->yvel < -0x100000)
                     entity->yvel = -0x100000;
 

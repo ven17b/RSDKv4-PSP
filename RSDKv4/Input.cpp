@@ -1,7 +1,6 @@
 #include "RetroEngine.hpp"
 
-#if RETRO_PLATFORM == RETRO_PSP
-#include <pspctrl.h>
+#if RETRO_USING_PSP
 static SceCtrlData pspPad;
 static bool pspCtrlInitialized = false;
 #endif
@@ -36,6 +35,7 @@ int mouseHideTimer = 0;
 int lastMouseX     = 0;
 int lastMouseY     = 0;
 
+#if RETRO_USING_SDL2 || RETRO_USING_SDL1
 struct InputDevice {
 #if RETRO_USING_SDL2
     // we need the controller index reported from SDL2's controller added event
@@ -50,6 +50,7 @@ struct InputDevice {
 };
 
 std::vector<InputDevice> controllers;
+#endif
 
 #if RETRO_USING_SDL1
 byte keyState[SDLK_LAST];
@@ -214,6 +215,7 @@ bool getControllerButton(byte buttonID)
 }
 #endif //! RETRO_USING_SDL2
 
+#if RETRO_USING_SDL2
 void controllerInit(int controllerID)
 {
     for (int i = 0; i < controllers.size(); ++i) {
@@ -222,7 +224,6 @@ void controllerInit(int controllerID)
         }
     }
 
-#if RETRO_USING_SDL2
     SDL_GameController *controller = SDL_GameControllerOpen(controllerID);
     if (controller) {
         InputDevice device;
@@ -245,42 +246,36 @@ void controllerInit(int controllerID)
     else {
         PrintLog("Could not open controller...\nSDL_GetError() -> %s", SDL_GetError());
     }
-#endif
 }
 
 void controllerClose(int controllerID)
 {
-#if RETRO_USING_SDL2
     SDL_GameController *controller = SDL_GameControllerFromInstanceID(controllerID);
     if (controller) {
         SDL_GameControllerClose(controller);
-#endif
         if (controllers.size() == 1) {
             controllers.clear();
         } else {
             for (int i = 0; i < controllers.size(); ++i) {
                 if (controllers[i].index == controllerID) {
-                    controllers.erase(controllers.begin() + i);
-#if RETRO_USING_SDL2
                     if (controllers[i].hapticPtr) {
                         SDL_HapticClose(controllers[i].hapticPtr);
                     }
-#endif
+                    controllers.erase(controllers.begin() + i);
                     break;
                 }
             }
         }
-#if RETRO_USING_SDL2
     }
-#endif
 
     if (controllers.empty())
         inputType = 0;
 }
+#endif
 
 void InitInputDevices()
 {
-#if RETRO_PLATFORM == RETRO_PSP
+#if RETRO_USING_PSP
     return;
 #endif
 
@@ -320,6 +315,7 @@ void InitInputDevices()
 
 void ReleaseInputDevices()
 {
+#if RETRO_USING_SDL2 || RETRO_USING_SDL1
     for (int i = 0; i < controllers.size(); i++) {
 #if RETRO_USING_SDL2
         if (controllers[i].devicePtr)
@@ -329,11 +325,12 @@ void ReleaseInputDevices()
 #endif
     }
     controllers.clear();
+#endif
 }
 
 void ProcessInput()
 {
-#if RETRO_PLATFORM == RETRO_PSP
+#if RETRO_USING_PSP
     if (!pspCtrlInitialized) {
         sceCtrlSetSamplingCycle(0);
         sceCtrlSetSamplingMode(PSP_CTRL_MODE_ANALOG);

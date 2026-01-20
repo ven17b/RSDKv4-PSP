@@ -1,6 +1,14 @@
 #ifndef AUDIO_H
 #define AUDIO_H
 
+#if RETRO_USING_PSP
+#include "PspPlatform.hpp"
+typedef short Sint16;
+typedef int Sint32;
+typedef unsigned char Uint8;
+extern volatile bool pspAudioReady;
+#endif
+
 #define TRACK_COUNT (0x10)
 #define SFX_COUNT   (0x100)
 #if !RETRO_USE_ORIGINAL_CODE
@@ -16,11 +24,12 @@
 
 #define MIX_BUFFER_SAMPLES (256)
 
-#if RETRO_USING_SDL1 || RETRO_USING_SDL2
-
+#if RETRO_USING_PSP
+#define LockAudioDevice()   ;
+#define UnlockAudioDevice() ;
+#elif RETRO_USING_SDL1 || RETRO_USING_SDL2
 #define LockAudioDevice()   SDL_LockAudio()
 #define UnlockAudioDevice() SDL_UnlockAudio()
-
 #else
 #define LockAudioDevice()   ;
 #define UnlockAudioDevice() ;
@@ -35,10 +44,12 @@ struct TrackInfo {
 struct StreamInfo {
     OggVorbis_File vorbisFile;
     int vorbBitstream;
-#if RETRO_USING_SDL1
+#if RETRO_USING_PSP
+    int sampleRate;
+    int channels;
+#elif RETRO_USING_SDL1
     SDL_AudioSpec spec;
-#endif
-#if RETRO_USING_SDL2
+#elif RETRO_USING_SDL2
     SDL_AudioStream *stream;
 #endif
     Sint16 buffer[MIX_BUFFER_SAMPLES];
@@ -110,15 +121,26 @@ extern SDL_AudioSpec audioDeviceFormat;
 int InitAudioPlayback();
 void LoadGlobalSfx();
 
-#if RETRO_USING_SDL1 || RETRO_USING_SDL2
+#if RETRO_USING_PSP
+#if !RETRO_USE_ORIGINAL_CODE
+void ProcessMusicStream(Sint32 *stream, size_t bytes_wanted);
+void ProcessAudioPlayback(void *buffer, unsigned int samples, void *userdata);
+void ProcessAudioMixing(Sint32 *dst, const Sint16 *src, int len, int volume, sbyte pan);
+
+inline void FreeMusInfo()
+{
+    LockAudioDevice();
+    ov_clear(&streamInfo[currentStreamIndex].vorbisFile);
+    UnlockAudioDevice();
+}
+#endif
+#elif RETRO_USING_SDL1 || RETRO_USING_SDL2
 #if !RETRO_USE_ORIGINAL_CODE
 // These functions did exist, but with different signatures
 void ProcessMusicStream(Sint32 *stream, size_t bytes_wanted);
 void ProcessAudioPlayback(void *data, Uint8 *stream, int len);
 void ProcessAudioMixing(Sint32 *dst, const Sint16 *src, int len, int volume, sbyte pan);
-#endif
 
-#if !RETRO_USE_ORIGINAL_CODE
 inline void FreeMusInfo()
 {
     LockAudioDevice();
@@ -316,6 +338,9 @@ inline void ReleaseAudioDevice()
     StopAllSfx();
     ReleaseStageSfx();
     ReleaseGlobalSfx();
+#if RETRO_USING_PSP
+    PspPlatform::ReleaseAudio();
+#endif
 }
 
 #endif // !AUDIO_H

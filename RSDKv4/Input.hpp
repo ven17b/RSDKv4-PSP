@@ -114,6 +114,11 @@ extern byte keyState[SDLK_LAST];
 extern SDL_Joystick *controller;
 #endif
 
+#if RETRO_USING_PSP
+void ControllerInit(byte controllerID);
+void ControllerClose(byte controllerID);
+#endif
+
 void InitInputDevices();
 void ReleaseInputDevices();
 
