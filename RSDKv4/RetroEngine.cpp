@@ -571,6 +571,7 @@ void RetroEngine::Run()
                 running = false;
         }
         
+        ProcessInput();
         ProcessStage();
         
         if (frameSkip == 0) {

@@ -1,5 +1,11 @@
 #include "RetroEngine.hpp"
 
+#if RETRO_PLATFORM == RETRO_PSP
+#include <pspctrl.h>
+static SceCtrlData pspPad;
+static bool pspCtrlInitialized = false;
+#endif
+
 InputData keyPress = InputData();
 InputData keyDown  = InputData();
 
@@ -275,7 +281,6 @@ void controllerClose(int controllerID)
 void InitInputDevices()
 {
 #if RETRO_PLATFORM == RETRO_PSP
-    PrintLog("PSP: Using built-in button input");
     return;
 #endif
 
@@ -329,6 +334,129 @@ void ReleaseInputDevices()
 void ProcessInput()
 {
 #if RETRO_PLATFORM == RETRO_PSP
+    if (!pspCtrlInitialized) {
+        sceCtrlSetSamplingCycle(0);
+        sceCtrlSetSamplingMode(PSP_CTRL_MODE_ANALOG);
+        pspCtrlInitialized = true;
+    }
+    
+    sceCtrlReadBufferPositive(&pspPad, 1);
+    bool anyPressed = false;
+    
+    if (pspPad.Buttons & PSP_CTRL_UP) {
+        inputDevice[INPUT_UP].setHeld();
+        anyPressed = true;
+    } else if (inputDevice[INPUT_UP].hold) {
+        inputDevice[INPUT_UP].setReleased();
+    }
+    
+    if (pspPad.Buttons & PSP_CTRL_DOWN) {
+        inputDevice[INPUT_DOWN].setHeld();
+        anyPressed = true;
+    } else if (inputDevice[INPUT_DOWN].hold) {
+        inputDevice[INPUT_DOWN].setReleased();
+    }
+    
+    if (pspPad.Buttons & PSP_CTRL_LEFT) {
+        inputDevice[INPUT_LEFT].setHeld();
+        anyPressed = true;
+    } else if (inputDevice[INPUT_LEFT].hold) {
+        inputDevice[INPUT_LEFT].setReleased();
+    }
+    
+    if (pspPad.Buttons & PSP_CTRL_RIGHT) {
+        inputDevice[INPUT_RIGHT].setHeld();
+        anyPressed = true;
+    } else if (inputDevice[INPUT_RIGHT].hold) {
+        inputDevice[INPUT_RIGHT].setReleased();
+    }
+    
+    if (pspPad.Buttons & PSP_CTRL_CROSS) {
+        inputDevice[INPUT_BUTTONA].setHeld();
+        anyPressed = true;
+    } else if (inputDevice[INPUT_BUTTONA].hold) {
+        inputDevice[INPUT_BUTTONA].setReleased();
+    }
+    
+    if (pspPad.Buttons & PSP_CTRL_CIRCLE) {
+        inputDevice[INPUT_BUTTONB].setHeld();
+        anyPressed = true;
+    } else if (inputDevice[INPUT_BUTTONB].hold) {
+        inputDevice[INPUT_BUTTONB].setReleased();
+    }
+    
+    if (pspPad.Buttons & PSP_CTRL_SQUARE) {
+        inputDevice[INPUT_BUTTONC].setHeld();
+        anyPressed = true;
+    } else if (inputDevice[INPUT_BUTTONC].hold) {
+        inputDevice[INPUT_BUTTONC].setReleased();
+    }
+    
+    if (pspPad.Buttons & PSP_CTRL_TRIANGLE) {
+        inputDevice[INPUT_BUTTONX].setHeld();
+        anyPressed = true;
+    } else if (inputDevice[INPUT_BUTTONX].hold) {
+        inputDevice[INPUT_BUTTONX].setReleased();
+    }
+    
+    if (pspPad.Buttons & PSP_CTRL_LTRIGGER) {
+        inputDevice[INPUT_BUTTONL].setHeld();
+        anyPressed = true;
+    } else if (inputDevice[INPUT_BUTTONL].hold) {
+        inputDevice[INPUT_BUTTONL].setReleased();
+    }
+    
+    if (pspPad.Buttons & PSP_CTRL_RTRIGGER) {
+        inputDevice[INPUT_BUTTONR].setHeld();
+        anyPressed = true;
+    } else if (inputDevice[INPUT_BUTTONR].hold) {
+        inputDevice[INPUT_BUTTONR].setReleased();
+    }
+    
+    if (pspPad.Buttons & PSP_CTRL_START) {
+        inputDevice[INPUT_START].setHeld();
+        anyPressed = true;
+    } else if (inputDevice[INPUT_START].hold) {
+        inputDevice[INPUT_START].setReleased();
+    }
+    
+    if (pspPad.Buttons & PSP_CTRL_SELECT) {
+        inputDevice[INPUT_SELECT].setHeld();
+        anyPressed = true;
+    } else if (inputDevice[INPUT_SELECT].hold) {
+        inputDevice[INPUT_SELECT].setReleased();
+    }
+    
+    // Analog stick support
+    if (pspPad.Lx < 64 && !inputDevice[INPUT_LEFT].hold) {
+        inputDevice[INPUT_LEFT].setHeld();
+        anyPressed = true;
+    }
+    if (pspPad.Lx > 192 && !inputDevice[INPUT_RIGHT].hold) {
+        inputDevice[INPUT_RIGHT].setHeld();
+        anyPressed = true;
+    }
+    if (pspPad.Ly < 64 && !inputDevice[INPUT_UP].hold) {
+        inputDevice[INPUT_UP].setHeld();
+        anyPressed = true;
+    }
+    if (pspPad.Ly > 192 && !inputDevice[INPUT_DOWN].hold) {
+        inputDevice[INPUT_DOWN].setHeld();
+        anyPressed = true;
+    }
+    
+    if (anyPressed) {
+        inputDevice[INPUT_ANY].setHeld();
+    } else if (inputDevice[INPUT_ANY].hold) {
+        inputDevice[INPUT_ANY].setReleased();
+    }
+    
+    if (inputDevice[INPUT_ANY].press || inputDevice[INPUT_ANY].hold) {
+        Engine.dimTimer = 0;
+    } else if (Engine.dimTimer < Engine.dimLimit && !Engine.masterPaused) {
+        ++Engine.dimTimer;
+    }
+    
     return;
 #endif
 
