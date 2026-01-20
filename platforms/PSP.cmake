@@ -1,3 +1,6 @@
+# PKG-CONFIG IS USED AS THE MAIN DRIVER
+# bc cmake is inconsistent as fuuuckkk
+
 find_package(PkgConfig REQUIRED)
 
 add_executable(RetroEngine ${RETRO_FILES})
@@ -28,6 +31,18 @@ else()
     target_compile_options(RetroEngine PRIVATE ${VORBIS_STATIC_CFLAGS})
 endif()
 
+if(RETRO_SDL_VERSION STREQUAL "2")
+    pkg_check_modules(SDL2 sdl2 REQUIRED)
+    target_link_libraries(RetroEngine ${SDL2_STATIC_LIBRARIES})
+    target_link_options(RetroEngine PRIVATE ${SDL2_STATIC_LDLIBS_OTHER})
+    target_compile_options(RetroEngine PRIVATE ${SDL2_STATIC_CFLAGS})
+elseif(RETRO_SDL_VERSION STREQUAL "1")
+    pkg_check_modules(SDL1 sdl1 REQUIRED)
+    target_link_libraries(RetroEngine ${SDL1_STATIC_LIBRARIES})
+    target_link_options(RetroEngine PRIVATE ${SDL1_STATIC_LDLIBS_OTHER})
+    target_compile_options(RetroEngine PRIVATE ${SDL1_STATIC_CFLAGS})
+endif()
+
 set(RETRO_MOD_LOADER OFF CACHE BOOL "Disable the mod loader" FORCE)
 set(RETRO_USE_HW_RENDER OFF CACHE BOOL "Disable hardware rendering on PSP" FORCE)
 set(RETRO_NETWORKING OFF CACHE BOOL "Disable networking on PSP" FORCE)
@@ -48,26 +63,20 @@ target_compile_options(RetroEngine PRIVATE
     -fno-rtti
     -finline-functions
     -funroll-loops
-    -march=allegrex
-    -mtune=allegrex
-    -mno-check-zero-division
-    -fsingle-precision-constant
 )
 target_compile_definitions(RetroEngine PRIVATE 
     RETRO_DISABLE_LOG=1
     USE_SW_REN=1
 )
 target_link_libraries(RetroEngine 
-    pspaudiolib
-    pspaudio
+    m
     pspgu
     pspgum
-    pspge
     pspdisplay
+    pspge
     psprtc
-    pspctrl
-    psppower
-    m
+    pspaudio
+    pspaudiolib
 )
 
 create_pbp_file(TARGET RetroEngine
