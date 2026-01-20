@@ -563,6 +563,7 @@ void RetroEngine::Run()
     unsigned long long prevTicks  = 0;
 
 #if RETRO_PLATFORM == RETRO_PSP
+    int frameSkip = 0;
     while (running) {
         SDL_Event evt;
         while (SDL_PollEvent(&evt)) {
@@ -571,7 +572,11 @@ void RetroEngine::Run()
         }
         
         ProcessStage();
-        FlipScreen();
+        
+        if (frameSkip == 0) {
+            FlipScreen();
+        }
+        frameSkip = (frameSkip + 1) % 2;
     }
     return;
 #endif

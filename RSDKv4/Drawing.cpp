@@ -63,13 +63,9 @@ int InitRenderDevice()
         return 0;
     }
     
-    Engine.renderer = SDL_CreateRenderer(Engine.window, -1, SDL_RENDERER_SOFTWARE | SDL_RENDERER_PRESENTVSYNC);
-    if (!Engine.renderer) {
-        return 0;
-    }
+    Engine.renderer = NULL;
+    Engine.screenBuffer = NULL;
     
-    Engine.screenBuffer = SDL_CreateTexture(Engine.renderer, SDL_PIXELFORMAT_RGB565, SDL_TEXTUREACCESS_STREAMING, SCREEN_XSIZE, SCREEN_YSIZE);
-    SDL_RenderSetLogicalSize(Engine.renderer, SCREEN_XSIZE, SCREEN_YSIZE);    
     SetScreenSize(SCREEN_XSIZE, (SCREEN_XSIZE + 9) & -0x8);
     
     Engine.frameBuffer = new ushort[GFX_LINESIZE * SCREEN_YSIZE];
@@ -336,11 +332,25 @@ int InitRenderDevice()
 void FlipScreen()
 {
 #if RETRO_PLATFORM == RETRO_PSP
-    if (!Engine.frameBuffer || !Engine.screenBuffer || !Engine.renderer)
+    if (!Engine.frameBuffer)
         return;
-    SDL_UpdateTexture(Engine.screenBuffer, NULL, Engine.frameBuffer, GFX_LINESIZE * sizeof(ushort));
-    SDL_RenderCopy(Engine.renderer, Engine.screenBuffer, NULL, NULL);
-    SDL_RenderPresent(Engine.renderer);
+    
+    static SDL_Surface *frameSurface = NULL;
+    static SDL_Rect destRect = {(480 - SCREEN_XSIZE) / 2, (272 - SCREEN_YSIZE) / 2, SCREEN_XSIZE, SCREEN_YSIZE};
+    
+    if (!frameSurface) {
+        frameSurface = SDL_CreateRGBSurfaceFrom(
+            Engine.frameBuffer, SCREEN_XSIZE, SCREEN_YSIZE,
+            16, GFX_LINESIZE * sizeof(ushort),
+            0xF800, 0x07E0, 0x001F, 0
+        );
+    }
+    
+    SDL_Surface *screen = SDL_GetWindowSurface(Engine.window);
+    if (screen && frameSurface) {
+        SDL_BlitSurface(frameSurface, NULL, screen, &destRect);
+        SDL_UpdateWindowSurface(Engine.window);
+    }
     return;
 #endif
 

@@ -55,10 +55,15 @@ if(RETRO_MOD_LOADER)
     )
 endif()
 
-target_compile_options(RetroEngine PRIVATE -O2)
+target_compile_options(RetroEngine PRIVATE 
+    -O3
+    -ffast-math
+    -fomit-frame-pointer
+    -fno-exceptions
+    -fno-rtti
+)
 target_compile_definitions(RetroEngine PRIVATE 
-    RETRO_DISABLE_LOG=0
-    RETRO_PLATFORM=9
+    RETRO_DISABLE_LOG=1
     USE_SW_REN=1
 )
 target_link_libraries(RetroEngine m)
