@@ -564,7 +564,7 @@ void RetroEngine::Run()
         }
         
         ProcessInput();
-        ProcessStage();
+        ProcessNativeObjects();
         FlipScreen();
         
         sceDisplayWaitVblankStart();
