@@ -295,10 +295,12 @@ void RetroEngine::Init()
     
     if (LoadGameConfig("Data/Game/GameConfig.bin")) {
         if (InitRenderDevice()) {
-            InitFirstStage();
-            ClearScriptData();
-            initialised = true;
-            running     = true;
+            if (InitAudioPlayback()) {
+                InitFirstStage();
+                ClearScriptData();
+                initialised = true;
+                running     = true;
+            }
         }
     }
     return;

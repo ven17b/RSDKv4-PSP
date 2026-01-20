@@ -37,8 +37,6 @@ extern void* pspUserAudioData;
 
 namespace PspPlatform {
 
-typedef void (*PspAudioCallback)(void* buffer, unsigned int samples, void* userdata);
-
 inline int InitDisplay() {
     pspVramBuffer = (ushort*)0x44000000;
     
@@ -115,7 +113,9 @@ inline u64 GetPerformanceFrequency() {
     return pspTickFrequency;
 }
 
-inline void AudioThreadCallback(void* buf, unsigned int reqn, void* userdata) {
+typedef void (*PspAudioCallback)(void* buffer, unsigned int samples, void* userdata);
+
+inline void AudioThread(void* buf, unsigned int reqn, void* userdata) {
     if (pspUserAudioCallback && pspAudioRunning) {
         pspUserAudioCallback(buf, reqn, pspUserAudioData);
     } else {
@@ -133,14 +133,13 @@ inline int InitAudio(PspAudioCallback callback, void* userdata) {
     sceKernelDelayThread(50000);
     
     pspAudioRunning = true;
-    pspAudioSetChannelCallback(0, AudioThreadCallback, nullptr);
+    pspAudioSetChannelCallback(0, AudioThread, nullptr);
     
     return 1;
 }
 
 inline void ReleaseAudio() {
     pspAudioRunning = false;
-    pspAudioSetChannelCallback(0, nullptr, nullptr);
     pspAudioEnd();
 }
 
