@@ -2,6 +2,7 @@
 #include <math.h>
 #include <time.h>
 
+#if RETRO_PLATFORM != RETRO_PSP
 int sinM7LookupTable[0x200];
 int cosM7LookupTable[0x200];
 
@@ -12,11 +13,13 @@ int sin256LookupTable[0x100];
 int cos256LookupTable[0x100];
 
 byte arcTan256LookupTable[0x100 * 0x100];
+#endif
 
 void CalculateTrigAngles()
 {
     srand(time(NULL));
 
+#if RETRO_PLATFORM != RETRO_PSP
     for (int i = 0; i < 0x200; ++i) {
         sinM7LookupTable[i] = (sin((i / 256.0) * M_PI) * 4096.0);
         cosM7LookupTable[i] = (cos((i / 256.0) * M_PI) * 4096.0);
@@ -60,15 +63,13 @@ void CalculateTrigAngles()
             atan += 0x100;
         }
     }
+#endif
 }
 
 byte ArcTanLookup(int X, int Y)
 {
-    int x = 0;
-    int y = 0;
-
-    x = abs(X);
-    y = abs(Y);
+    int x = abs(X);
+    int y = abs(Y);
 
     if (x <= y) {
         while (y > 0xFF) {
@@ -82,6 +83,27 @@ byte ArcTanLookup(int X, int Y)
             y >>= 4;
         }
     }
+
+#if RETRO_PLATFORM == RETRO_PSP
+    if (x == 0 && y == 0)
+        return 0;
+    
+    float atanVal = atan2f((float)y, (float)x) * 40.743664f;
+    if (!isfinite(atanVal))
+        return 0;
+    
+    int result = (int)atanVal;
+    if (X <= 0) {
+        if (Y <= 0)
+            return result + 0x80;
+        else
+            return 0x80 - result;
+    }
+    else if (Y <= 0)
+        return -result;
+    else
+        return result;
+#else
     if (X <= 0) {
         if (Y <= 0)
             return arcTan256LookupTable[(x << 8) + y] + -0x80;
@@ -92,4 +114,5 @@ byte ArcTanLookup(int X, int Y)
         return -arcTan256LookupTable[(x << 8) + y];
     else
         return arcTan256LookupTable[(x << 8) + y];
+#endif
 }

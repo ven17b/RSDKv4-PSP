@@ -107,8 +107,8 @@ void MatrixScaleXYZ(Matrix *matrix, int scaleX, int scaleY, int scaleZ)
 }
 void MatrixRotateX(Matrix *matrix, int rotationX)
 {
-    int sine   = sin512LookupTable[rotationX & 0x1FF] >> 1;
-    int cosine = cos512LookupTable[rotationX & 0x1FF] >> 1;
+    int sine   = Sin512(rotationX) >> 1;
+    int cosine = Cos512(rotationX) >> 1;
 
     matrix->values[0][0] = 0x100;
     matrix->values[0][1] = 0;
@@ -132,8 +132,8 @@ void MatrixRotateX(Matrix *matrix, int rotationX)
 }
 void MatrixRotateY(Matrix *matrix, int rotationY)
 {
-    int sine   = sin512LookupTable[rotationY & 0x1FF] >> 1;
-    int cosine = cos512LookupTable[rotationY & 0x1FF] >> 1;
+    int sine   = Sin512(rotationY) >> 1;
+    int cosine = Cos512(rotationY) >> 1;
 
     matrix->values[0][0] = cosine;
     matrix->values[0][1] = 0;
@@ -157,8 +157,8 @@ void MatrixRotateY(Matrix *matrix, int rotationY)
 }
 void MatrixRotateZ(Matrix *matrix, int rotationZ)
 {
-    int sine             = sin512LookupTable[rotationZ & 0x1FF] >> 1;
-    int cosine           = cos512LookupTable[rotationZ & 0x1FF] >> 1;
+    int sine             = Sin512(rotationZ) >> 1;
+    int cosine           = Cos512(rotationZ) >> 1;
     matrix->values[0][0] = cosine;
     matrix->values[0][1] = 0;
     matrix->values[0][2] = sine;
@@ -181,12 +181,12 @@ void MatrixRotateZ(Matrix *matrix, int rotationZ)
 }
 void MatrixRotateXYZ(Matrix *matrix, short rotationX, short rotationY, short rotationZ)
 {
-    int sinX = sin512LookupTable[rotationX & 0x1FF] >> 1;
-    int cosX = cos512LookupTable[rotationX & 0x1FF] >> 1;
-    int sinY = sin512LookupTable[rotationY & 0x1FF] >> 1;
-    int cosY = cos512LookupTable[rotationY & 0x1FF] >> 1;
-    int sinZ = sin512LookupTable[rotationZ & 0x1FF] >> 1;
-    int cosZ = cos512LookupTable[rotationZ & 0x1FF] >> 1;
+    int sinX = Sin512(rotationX) >> 1;
+    int cosX = Cos512(rotationX) >> 1;
+    int sinY = Sin512(rotationY) >> 1;
+    int cosY = Cos512(rotationY) >> 1;
+    int sinZ = Sin512(rotationZ) >> 1;
+    int cosZ = Cos512(rotationZ) >> 1;
 
     matrix->values[0][0] = (cosZ * cosY >> 8) + (sinZ * (sinY * sinX >> 8) >> 8);
     matrix->values[0][1] = (sinZ * cosY >> 8) - (cosZ * (sinY * sinX >> 8) >> 8);

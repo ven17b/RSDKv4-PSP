@@ -61,12 +61,23 @@ target_compile_options(RetroEngine PRIVATE
     -fomit-frame-pointer
     -fno-exceptions
     -fno-rtti
+    -finline-functions
+    -funroll-loops
 )
 target_compile_definitions(RetroEngine PRIVATE 
     RETRO_DISABLE_LOG=1
     USE_SW_REN=1
 )
-target_link_libraries(RetroEngine m)
+target_link_libraries(RetroEngine 
+    m
+    pspgu
+    pspgum
+    pspdisplay
+    pspge
+    psprtc
+    pspaudio
+    pspaudiolib
+)
 
 create_pbp_file(TARGET RetroEngine
     TITLE "RSDKv4")

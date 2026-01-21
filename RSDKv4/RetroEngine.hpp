@@ -114,12 +114,19 @@ typedef unsigned int uint;
 #define BASE_PATH ""
 #endif
 
+#if RETRO_PLATFORM == RETRO_PSP
+#define RETRO_USING_SDL1 (0)
+#define RETRO_USING_SDL2 (0)
+#define RETRO_USING_PSP  (1)
+#else
+#define RETRO_USING_PSP  (0)
+
 #if !defined(RETRO_USE_SDL2) && !defined(RETRO_USE_SDL1)
 #define RETRO_USE_SDL2 (1)
 #endif
 
 #if RETRO_PLATFORM == RETRO_WIN || RETRO_PLATFORM == RETRO_OSX || RETRO_PLATFORM == RETRO_LINUX || RETRO_PLATFORM == RETRO_UWP                       \
-    || RETRO_PLATFORM == RETRO_ANDROID || RETRO_PLATFORM == RETRO_PSP
+    || RETRO_PLATFORM == RETRO_ANDROID
 #ifdef RETRO_USE_SDL2
 #define RETRO_USING_SDL1 (0)
 #define RETRO_USING_SDL2 (1)
@@ -130,6 +137,7 @@ typedef unsigned int uint;
 #else // Since its an else & not an elif these platforms probably aren't supported yet
 #define RETRO_USING_SDL1 (0)
 #define RETRO_USING_SDL2 (0)
+#endif
 #endif
 
 #if RETRO_PLATFORM == RETRO_iOS || RETRO_PLATFORM == RETRO_ANDROID || RETRO_PLATFORM == RETRO_WP7
@@ -317,7 +325,7 @@ enum RetroGameType {
 #endif
 #include <vorbis/vorbisfile.h>
 #elif RETRO_PLATFORM == RETRO_PSP
-#include <SDL2/SDL.h>
+#include "PspPlatform.hpp"
 #include <vorbis/vorbisfile.h>
 #elif RETRO_PLATFORM == RETRO_OSX
 #include <SDL2/SDL.h>
@@ -542,6 +550,9 @@ public:
 
     SDL_Event sdlEvents;
 #endif // RETRO_USING_SDL1
+
+#if RETRO_USING_PSP
+#endif // RETRO_USING_PSP
 #endif //! RETRO_USE_ORIGINAL_CODE
 };
 

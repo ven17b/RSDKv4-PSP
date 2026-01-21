@@ -1,6 +1,10 @@
 #include "RetroEngine.hpp"
 #include <cmath>
 
+#if RETRO_USING_PSP
+volatile bool pspAudioReady = false;
+#endif
+
 int globalSFXCount = 0;
 int stageSFXCount  = 0;
 
@@ -29,6 +33,11 @@ ChannelInfo sfxChannels[CHANNEL_COUNT];
 
 int currentMusicTrack = -1;
 
+#define AUDIO_FREQUENCY (44100)
+#define AUDIO_SAMPLES   (0x800)
+#define AUDIO_CHANNELS  (2)
+#define ADJUST_VOLUME(s, v) (s = (s * v) / MAX_VOLUME)
+
 #if RETRO_USING_SDL1 || RETRO_USING_SDL2
 
 #if RETRO_USING_SDL2
@@ -36,20 +45,33 @@ SDL_AudioDeviceID audioDevice;
 #endif
 SDL_AudioSpec audioDeviceFormat;
 
-#define AUDIO_FREQUENCY (44100)
 #define AUDIO_FORMAT    (AUDIO_S16SYS) /**< Signed 16-bit samples */
-#define AUDIO_SAMPLES   (0x800)
-#define AUDIO_CHANNELS  (2)
+#endif
 
-#define ADJUST_VOLUME(s, v) (s = (s * v) / MAX_VOLUME)
+#if RETRO_USING_PSP
+void ProcessAudioPlaybackPSP(void *buffer, unsigned int samples, void *userdata);
 #endif
 
 int InitAudioPlayback()
 {
     StopAllSfx(); //"init"
 
-#if RETRO_PLATFORM == RETRO_PSP
-    audioEnabled = false;
+#if RETRO_USING_PSP
+    pspAudioReady = false;
+    
+    for (int i = 0; i < CHANNEL_COUNT; ++i) {
+        sfxChannels[i].sfxID = -1;
+    }
+    
+    if (PspPlatform::InitAudio(ProcessAudioPlaybackPSP, nullptr)) {
+        audioEnabled = true;
+        globalSFXCount = 0;
+        pspAudioReady = true;
+    } else {
+        audioEnabled = false;
+    }
+    
+    LoadGlobalSfx();
     return true;
 #endif
 
@@ -319,6 +341,112 @@ void ProcessMusicStream(Sint32 *stream, size_t bytes_wanted)
     }
 }
 
+#if RETRO_USING_PSP
+void ProcessAudioMixingPSP(int *dst, const short *src, int len, int volume, signed char pan)
+{
+    if (volume == 0)
+        return;
+
+    if (volume > MAX_VOLUME)
+        volume = MAX_VOLUME;
+
+    float panL = 1.0f;
+    float panR = 1.0f;
+
+    if (pan < 0) {
+        panR = 1.0f - abs(pan / 100.0f);
+    }
+    else if (pan > 0) {
+        panL = 1.0f - abs(pan / 100.0f);
+    }
+
+    while (len--) {
+        int sample = *src++;
+        ADJUST_VOLUME(sample, volume);
+
+        if (len & 1) {
+            *dst++ += (int)(sample * panR);
+        }
+        else {
+            *dst++ += (int)(sample * panL);
+        }
+    }
+}
+
+void ProcessAudioPlaybackPSP(void *buffer, unsigned int samples, void *userdata)
+{
+    if (!buffer) return;
+    
+    if (!pspAudioReady || !audioEnabled) {
+        memset(buffer, 0, samples * 4);
+        return;
+    }
+
+    short *output_buffer = (short *)buffer;
+    size_t samples_remaining = samples * 2;
+    
+    while (samples_remaining != 0) {
+        int mix_buffer[MIX_BUFFER_SAMPLES];
+        memset(mix_buffer, 0, sizeof(mix_buffer));
+
+        const size_t samples_to_do = (samples_remaining < MIX_BUFFER_SAMPLES) ? samples_remaining : MIX_BUFFER_SAMPLES;
+
+        ProcessMusicStream(mix_buffer, samples_to_do * sizeof(short));
+
+        for (int i = 0; i < CHANNEL_COUNT; ++i) {
+            ChannelInfo *sfx = &sfxChannels[i];
+            if (sfx == NULL || sfx->sfxID < 0)
+                continue;
+
+            if (sfx->samplePtr) {
+                short sfxBuffer[MIX_BUFFER_SAMPLES];
+                size_t samples_done = 0;
+                
+                while (samples_done != samples_to_do) {
+                    size_t sampleLen = (sfx->sampleLength < samples_to_do - samples_done) ? sfx->sampleLength : samples_to_do - samples_done;
+                    memcpy(&sfxBuffer[samples_done], sfx->samplePtr, sampleLen * sizeof(short));
+
+                    samples_done += sampleLen;
+                    sfx->samplePtr += sampleLen;
+                    sfx->sampleLength -= sampleLen;
+
+                    if (sfx->sampleLength == 0) {
+                        if (sfx->loopSFX) {
+                            sfx->samplePtr = sfxList[sfx->sfxID].buffer;
+                            sfx->sampleLength = sfxList[sfx->sfxID].length;
+                        }
+                        else {
+                            MEM_ZEROP(sfx);
+                            sfx->sfxID = -1;
+                            break;
+                        }
+                    }
+                }
+
+                ProcessAudioMixingPSP(mix_buffer, sfxBuffer, (int)samples_done, sfxVolume, sfx->pan);
+            }
+        }
+
+        for (size_t i = 0; i < samples_to_do; ++i) {
+            const short max_audioval = ((1 << (16 - 1)) - 1);
+            const short min_audioval = -(1 << (16 - 1));
+
+            const int sample = mix_buffer[i];
+
+            if (sample > max_audioval)
+                *output_buffer++ = max_audioval;
+            else if (sample < min_audioval)
+                *output_buffer++ = min_audioval;
+            else
+                *output_buffer++ = sample;
+        }
+
+        samples_remaining -= samples_to_do;
+    }
+}
+#endif
+
+#if RETRO_USING_SDL1 || RETRO_USING_SDL2
 void ProcessAudioPlayback(void *userdata, Uint8 *stream, int len)
 {
     (void)userdata; // Unused
@@ -372,9 +500,7 @@ void ProcessAudioPlayback(void *userdata, Uint8 *stream, int len)
                     }
                 }
 
-#if RETRO_USING_SDL1 || RETRO_USING_SDL2
                 ProcessAudioMixing(mix_buffer, buffer, (int)samples_done, sfxVolume, sfx->pan);
-#endif
             }
         }
 
@@ -396,6 +522,7 @@ void ProcessAudioPlayback(void *userdata, Uint8 *stream, int len)
         samples_remaining -= samples_to_do;
     }
 }
+#endif // RETRO_USING_SDL1 || RETRO_USING_SDL2
 
 #if RETRO_USING_SDL1 || RETRO_USING_SDL2
 void ProcessAudioMixing(Sint32 *dst, const Sint16 *src, int len, int volume, sbyte pan)
@@ -619,6 +746,259 @@ void LoadSfx(char *filePath, byte sfxID)
     if (LoadFile(fullPath, &info)) {
 #if !RETRO_USE_ORIGINAL_CODE
         byte type = fullPath[StrLength(fullPath) - 3];
+#if RETRO_USING_PSP
+        if (type == 'w') {
+            byte *sfx = (byte*)malloc(info.vfileSize);
+            if (!sfx) {
+                CloseFile();
+                return;
+            }
+            FileRead(sfx, info.vfileSize);
+            CloseFile();
+
+            LockAudioDevice();
+            
+            if (info.vfileSize < 44) {
+                PrintLog("Unable to read sfx (too small): %s", info.fileName);
+                free(sfx);
+                UnlockAudioDevice();
+                return;
+            }
+            
+            if (sfx[0] != 'R' || sfx[1] != 'I' || sfx[2] != 'F' || sfx[3] != 'F') {
+                PrintLog("Unable to read sfx (not RIFF): %s", info.fileName);
+                free(sfx);
+                UnlockAudioDevice();
+                return;
+            }
+            
+            int pos = 12;
+            int dataPos = 0;
+            int dataLen = 0;
+            int channels = 1;
+            int sampleRate = 44100;
+            int bitsPerSample = 16;
+            
+            while (pos < (int)info.vfileSize - 8) {
+                char chunkId[5] = {0};
+                memcpy(chunkId, sfx + pos, 4);
+                int chunkSize = *(int*)(sfx + pos + 4);
+                
+                if (strcmp(chunkId, "fmt ") == 0) {
+                    channels = *(short*)(sfx + pos + 10);
+                    sampleRate = *(int*)(sfx + pos + 12);
+                    bitsPerSample = *(short*)(sfx + pos + 22);
+                }
+                else if (strcmp(chunkId, "data") == 0) {
+                    dataPos = pos + 8;
+                    dataLen = chunkSize;
+                    break;
+                }
+                
+                pos += 8 + chunkSize;
+                if (chunkSize & 1) pos++;
+            }
+            
+            if (dataPos > 0 && dataLen > 0) {
+                int srcSampleCount = dataLen / (bitsPerSample / 8) / channels;
+                
+                Sint16* monoBuffer = (Sint16*)malloc(srcSampleCount * sizeof(Sint16));
+                if (!monoBuffer) {
+                    free(sfx);
+                    UnlockAudioDevice();
+                    return;
+                }
+                
+                if (bitsPerSample == 16) {
+                    Sint16* src16 = (Sint16*)(sfx + dataPos);
+                    if (channels == 2) {
+                        for (int i = 0; i < srcSampleCount; i++) {
+                            monoBuffer[i] = (src16[i * 2] + src16[i * 2 + 1]) / 2;
+                        }
+                    } else {
+                        memcpy(monoBuffer, sfx + dataPos, srcSampleCount * sizeof(Sint16));
+                    }
+                }
+                else if (bitsPerSample == 8) {
+                    byte* src8 = sfx + dataPos;
+                    if (channels == 2) {
+                        for (int i = 0; i < srcSampleCount; i++) {
+                            int sample = (((int)src8[i * 2] - 128) + ((int)src8[i * 2 + 1] - 128)) / 2;
+                            monoBuffer[i] = sample * 256;
+                        }
+                    } else {
+                        for (int i = 0; i < srcSampleCount; i++) {
+                            monoBuffer[i] = ((int)src8[i] - 128) * 256;
+                        }
+                    }
+                }
+                
+                int resampledCount = srcSampleCount;
+                Sint16* resampledBuffer = monoBuffer;
+                
+                if (sampleRate != AUDIO_FREQUENCY) {
+                    resampledCount = (int)((long long)srcSampleCount * AUDIO_FREQUENCY / sampleRate);
+                    resampledBuffer = (Sint16*)malloc(resampledCount * sizeof(Sint16));
+                    if (!resampledBuffer) {
+                        free(monoBuffer);
+                        free(sfx);
+                        UnlockAudioDevice();
+                        return;
+                    }
+                    
+                    for (int i = 0; i < resampledCount; i++) {
+                        int srcIdx = (int)((long long)i * sampleRate / AUDIO_FREQUENCY);
+                        if (srcIdx >= srcSampleCount) srcIdx = srcSampleCount - 1;
+                        resampledBuffer[i] = monoBuffer[srcIdx];
+                    }
+                    free(monoBuffer);
+                }
+                
+                int stereoCount = resampledCount * 2;
+                sfxList[sfxID].buffer = (Sint16*)malloc(stereoCount * sizeof(Sint16));
+                if (!sfxList[sfxID].buffer) {
+                    free(resampledBuffer);
+                    free(sfx);
+                    UnlockAudioDevice();
+                    return;
+                }
+                for (int i = 0; i < resampledCount; i++) {
+                    sfxList[sfxID].buffer[i * 2] = resampledBuffer[i];
+                    sfxList[sfxID].buffer[i * 2 + 1] = resampledBuffer[i];
+                }
+                free(resampledBuffer);
+                
+                StrCopy(sfxList[sfxID].name, filePath);
+                sfxList[sfxID].length = stereoCount;
+                sfxList[sfxID].loaded = true;
+            }
+            else {
+                PrintLog("Unable to read sfx (no data chunk): %s", info.fileName);
+            }
+            
+            free(sfx);
+            UnlockAudioDevice();
+        }
+        else if (type == 'o') {
+            OggVorbis_File vf;
+            ov_callbacks callbacks = OV_CALLBACKS_NOCLOSE;
+            vorbis_info *vinfo;
+            byte *buf;
+            int bitstream = -1;
+            long samplesize;
+            long samples;
+            int read, toRead;
+
+            currentStreamIndex++;
+            currentStreamIndex %= STREAMFILE_COUNT;
+
+            StreamFile *sfxFile = &streamFile[currentStreamIndex];
+            sfxFile->filePos    = 0;
+            sfxFile->fileSize   = info.vfileSize;
+            if (info.vfileSize > MUSBUFFER_SIZE)
+                sfxFile->fileSize = MUSBUFFER_SIZE;
+
+            FileRead(streamFile[currentStreamIndex].buffer, sfxFile->fileSize);
+            CloseFile();
+
+            callbacks.read_func  = readVorbis;
+            callbacks.seek_func  = seekVorbis;
+            callbacks.tell_func  = tellVorbis;
+            callbacks.close_func = closeVorbis;
+
+            int error = ov_open_callbacks(sfxFile, &vf, NULL, 0, callbacks);
+            if (error != 0) {
+                ov_clear(&vf);
+                PrintLog("failed to load ogg sfx!");
+                return;
+            }
+
+            vinfo = ov_info(&vf, -1);
+
+            byte *audioBuf = NULL;
+            uint audioLen  = 0;
+
+            int channels = vinfo->channels;
+            int freq = (int)vinfo->rate;
+
+            samples = (long)ov_pcm_total(&vf, -1);
+            audioLen = (uint)(samples * channels * 2);
+            audioBuf = (byte *)malloc(audioLen);
+            buf = audioBuf;
+            toRead = audioLen;
+
+            for (read = (int)ov_read(&vf, (char *)buf, toRead, 0, 2, 1, &bitstream); read > 0;
+                 read = (int)ov_read(&vf, (char *)buf, toRead, 0, 2, 1, &bitstream)) {
+                if (read < 0) {
+                    free(audioBuf);
+                    ov_clear(&vf);
+                    PrintLog("failed to read ogg sfx!");
+                    return;
+                }
+                toRead -= read;
+                buf += read;
+            }
+
+            ov_clear(&vf);
+
+            samplesize = 2 * channels;
+            audioLen &= ~(samplesize - 1);
+
+            int srcSampleCount = audioLen / 2 / channels;
+            Sint16* monoBuffer = (Sint16*)malloc(srcSampleCount * sizeof(Sint16));
+            if (!monoBuffer) {
+                free(audioBuf);
+                return;
+            }
+
+            Sint16* src16 = (Sint16*)audioBuf;
+            if (channels == 2) {
+                for (int i = 0; i < srcSampleCount; i++) {
+                    monoBuffer[i] = (src16[i * 2] + src16[i * 2 + 1]) / 2;
+                }
+            } else {
+                memcpy(monoBuffer, audioBuf, srcSampleCount * sizeof(Sint16));
+            }
+            free(audioBuf);
+
+            int resampledCount = srcSampleCount;
+            Sint16* resampledBuffer = monoBuffer;
+
+            if (freq != AUDIO_FREQUENCY) {
+                resampledCount = (int)((long long)srcSampleCount * AUDIO_FREQUENCY / freq);
+                resampledBuffer = (Sint16*)malloc(resampledCount * sizeof(Sint16));
+                if (!resampledBuffer) {
+                    free(monoBuffer);
+                    return;
+                }
+                for (int i = 0; i < resampledCount; i++) {
+                    int srcIdx = (int)((long long)i * freq / AUDIO_FREQUENCY);
+                    if (srcIdx >= srcSampleCount) srcIdx = srcSampleCount - 1;
+                    resampledBuffer[i] = monoBuffer[srcIdx];
+                }
+                free(monoBuffer);
+            }
+
+            int stereoCount = resampledCount * 2;
+            LockAudioDevice();
+            sfxList[sfxID].buffer = (Sint16*)malloc(stereoCount * sizeof(Sint16));
+            if (sfxList[sfxID].buffer) {
+                for (int i = 0; i < resampledCount; i++) {
+                    sfxList[sfxID].buffer[i * 2] = resampledBuffer[i];
+                    sfxList[sfxID].buffer[i * 2 + 1] = resampledBuffer[i];
+                }
+                StrCopy(sfxList[sfxID].name, filePath);
+                sfxList[sfxID].length = stereoCount;
+                sfxList[sfxID].loaded = true;
+            }
+            free(resampledBuffer);
+            UnlockAudioDevice();
+        }
+        else {
+            CloseFile();
+            PrintLog("Sfx format not supported!");
+        }
+#else
         if (type == 'w') {
             byte *sfx = new byte[info.vfileSize];
             FileRead(sfx, info.vfileSize);
@@ -775,6 +1155,7 @@ void LoadSfx(char *filePath, byte sfxID)
             CloseFile();
             PrintLog("Sfx format not supported!");
         }
+#endif
 #endif
     }
 }

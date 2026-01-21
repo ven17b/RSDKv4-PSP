@@ -53,33 +53,30 @@ bool bilinearScaling = false;
 int InitRenderDevice()
 {
 #if RETRO_PLATFORM == RETRO_PSP
-    if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+    SCREEN_XSIZE = 480;
+    SCREEN_CENTERX = SCREEN_XSIZE / 2;
+    SetScreenSize(SCREEN_XSIZE, 512);
+    
+    if (!PspPlatform::InitDisplay())
         return 0;
-    }
+    
+    PspPlatform::InitTiming();
     
     Engine.useHQModes = false;
-    Engine.window = SDL_CreateWindow("RSDKv4", 0, 0, 480, 272, SDL_WINDOW_SHOWN);
-    if (!Engine.window) {
-        return 0;
-    }
-    
-    Engine.renderer = NULL;
-    Engine.screenBuffer = NULL;
-    
-    SetScreenSize(SCREEN_XSIZE, (SCREEN_XSIZE + 9) & -0x8);
+    Engine.isFullScreen = true;
+    Engine.screenRefreshRate = 60;
+    Engine.vsync = false;
     
     Engine.frameBuffer = new ushort[GFX_LINESIZE * SCREEN_YSIZE];
+    if (!Engine.frameBuffer)
+        return 0;
     memset(Engine.frameBuffer, 0, GFX_LINESIZE * SCREEN_YSIZE * sizeof(ushort));
-    
-    Engine.isFullScreen      = true;
-    Engine.screenRefreshRate = 60;
     
     OBJECT_BORDER_X2 = SCREEN_XSIZE + 0x80;
     OBJECT_BORDER_X4 = SCREEN_XSIZE + 0x20;
     
     return 1;
-#endif
-
+#else
     char gameTitle[0x40];
 
     sprintf(gameTitle, "%s%s", Engine.gameWindowText, Engine.usingDataFile_Config ? "" : " (Using Data Folder)");
@@ -328,6 +325,7 @@ int InitRenderDevice()
     InitInputDevices();
 
     return 1;
+#endif
 }
 void FlipScreen()
 {
@@ -335,25 +333,9 @@ void FlipScreen()
     if (!Engine.frameBuffer)
         return;
     
-    static SDL_Surface *frameSurface = NULL;
-    static SDL_Rect destRect = {(480 - SCREEN_XSIZE) / 2, (272 - SCREEN_YSIZE) / 2, SCREEN_XSIZE, SCREEN_YSIZE};
-    
-    if (!frameSurface) {
-        frameSurface = SDL_CreateRGBSurfaceFrom(
-            Engine.frameBuffer, SCREEN_XSIZE, SCREEN_YSIZE,
-            16, GFX_LINESIZE * sizeof(ushort),
-            0xF800, 0x07E0, 0x001F, 0
-        );
-    }
-    
-    SDL_Surface *screen = SDL_GetWindowSurface(Engine.window);
-    if (screen && frameSurface) {
-        SDL_BlitSurface(frameSurface, NULL, screen, &destRect);
-        SDL_UpdateWindowSurface(Engine.window);
-    }
-    return;
-#endif
-
+    PspPlatform::CopyToVram(Engine.frameBuffer, SCREEN_XSIZE, SCREEN_YSIZE, GFX_LINESIZE);
+    PspPlatform::FlipScreen();
+#else
 #if !RETRO_USE_ORIGINAL_CODE
     float dimAmount = 1.0;
     if ((!Engine.masterPaused || Engine.frameStep) && !drawStageGFXHQ) {
@@ -571,6 +553,7 @@ void FlipScreen()
 #endif // !RETRO_SOFTWARE_RENDER
 
 #endif
+#endif // !RETRO_PLATFORM == RETRO_PSP
 }
 void ReleaseRenderDevice(bool refresh)
 {
@@ -579,6 +562,13 @@ void ReleaseRenderDevice(bool refresh)
         ClearTextures(false);
     }
 
+#if RETRO_PLATFORM == RETRO_PSP
+    if (Engine.frameBuffer) {
+        delete[] Engine.frameBuffer;
+        Engine.frameBuffer = nullptr;
+    }
+    PspPlatform::ReleaseDisplay();
+#else
 #if !RETRO_USE_ORIGINAL_CODE
 #if RETRO_SOFTWARE_RENDER
     if (Engine.frameBuffer)
@@ -607,6 +597,7 @@ void ReleaseRenderDevice(bool refresh)
     SDL_DestroyRenderer(Engine.renderer);
 #endif
     SDL_DestroyWindow(Engine.window);
+#endif
 #endif
 #endif
 }
@@ -2595,8 +2586,8 @@ void Draw3DFloorLayer(int layerID)
     int layerHeight        = layer->ysize << 7;
     int layerYPos          = layer->ypos;
     int layerZPos          = layer->zpos;
-    int sinValue           = sinM7LookupTable[layer->angle];
-    int cosValue           = cosM7LookupTable[layer->angle];
+    int sinValue           = SinM7(layer->angle);
+    int cosValue           = CosM7(layer->angle);
     byte *gfxLineBufferPtr = &gfxLineBuffer[(SCREEN_YSIZE / 2) + 12];
     ushort *frameBufferPtr = &Engine.frameBuffer[((SCREEN_YSIZE / 2) + 12) * GFX_LINESIZE];
     int layerXPos          = layer->xpos >> 4;
@@ -2647,8 +2638,8 @@ void Draw3DSkyLayer(int layerID)
     int layerWidth         = layer->xsize << 7;
     int layerHeight        = layer->ysize << 7;
     int layerYPos          = layer->ypos;
-    int sinValue           = sinM7LookupTable[layer->angle & 0x1FF];
-    int cosValue           = cosM7LookupTable[layer->angle & 0x1FF];
+    int sinValue           = SinM7(layer->angle);
+    int cosValue           = CosM7(layer->angle);
     ushort *frameBufferPtr = &Engine.frameBuffer[((SCREEN_YSIZE / 2) + 12) * GFX_LINESIZE];
     ushort *bufferPtr      = Engine.frameBuffer2x;
     if (!drawStageGFXHQ)
@@ -3282,8 +3273,8 @@ void DrawSpriteRotated(int direction, int XPos, int YPos, int pivotX, int pivotY
         angle += 0x200;
     if (angle)
         angle = 0x200 - angle;
-    int sine   = sin512LookupTable[angle];
-    int cosine = cos512LookupTable[angle];
+    int sine   = Sin512(angle);
+    int cosine = Cos512(angle);
     int xPositions[4];
     int yPositions[4];
 
@@ -3433,8 +3424,8 @@ void DrawSpriteRotozoom(int direction, int XPos, int YPos, int pivotX, int pivot
         angle += 0x200;
     if (angle)
         angle = 0x200 - angle;
-    int sine   = scale * sin512LookupTable[angle] >> 9;
-    int cosine = scale * cos512LookupTable[angle] >> 9;
+    int sine   = scale * Sin512(angle) >> 9;
+    int cosine = scale * Cos512(angle) >> 9;
     int xPositions[4];
     int yPositions[4];
 
@@ -3463,8 +3454,8 @@ void DrawSpriteRotozoom(int direction, int XPos, int YPos, int pivotX, int pivot
         yPositions[3] = YPos + ((cosine * b - sine * a) >> 9);
     }
     int truescale = (signed int)(float)((float)(512.0 / (float)scale) * 512.0);
-    sine          = truescale * sin512LookupTable[angle] >> 9;
-    cosine        = truescale * cos512LookupTable[angle] >> 9;
+    sine          = truescale * Sin512(angle) >> 9;
+    cosine        = truescale * Cos512(angle) >> 9;
 
     int left = GFX_LINESIZE;
     for (int i = 0; i < 4; ++i) {

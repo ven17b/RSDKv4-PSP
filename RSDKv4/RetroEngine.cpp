@@ -32,13 +32,8 @@ inline int GetLowerRate(int intendRate, int targetRate)
 bool ProcessEvents()
 {
 #if RETRO_PLATFORM == RETRO_PSP
-    while (SDL_PollEvent(&Engine.sdlEvents)) {
-        if (Engine.sdlEvents.type == SDL_QUIT)
-            return false;
-    }
     return true;
-#endif
-
+#else
 #if !RETRO_USE_ORIGINAL_CODE
 #if RETRO_USING_SDL1 || RETRO_USING_SDL2
     while (SDL_PollEvent(&Engine.sdlEvents)) {
@@ -280,6 +275,7 @@ bool ProcessEvents()
 #endif
 #endif
     return true;
+#endif
 }
 
 void RetroEngine::Init()
@@ -558,29 +554,45 @@ void RetroEngine::Run()
 {
     Engine.deltaTime = 0.0f;
 
-    unsigned long long targetFreq = SDL_GetPerformanceFrequency() / Engine.refreshRate;
-    unsigned long long curTicks   = 0;
-    unsigned long long prevTicks  = 0;
-
 #if RETRO_PLATFORM == RETRO_PSP
-    int frameSkip = 0;
+    extern volatile bool pspSuspended;
+    
     while (running) {
-        SDL_Event evt;
-        while (SDL_PollEvent(&evt)) {
-            if (evt.type == SDL_QUIT)
-                running = false;
+        if (pspSuspended) {
+            sceKernelDelayThread(100000);
+            continue;
         }
         
         ProcessInput();
-        ProcessStage();
         
-        if (frameSkip == 0) {
-            FlipScreen();
+        switch (Engine.gameMode) {
+            case ENGINE_MAINGAME:
+                ProcessStage();
+                break;
+                
+            case ENGINE_DEVMENU:
+                ProcessStageSelect();
+                break;
+                
+            case ENGINE_INITDEVMENU:
+                Engine.LoadGameConfig("Data/Game/GameConfig.bin");
+                InitDevMenu();
+                ResetCurrentStageFolder();
+                break;
+                
+            default:
+                ProcessNativeObjects();
+                break;
         }
-        frameSkip = (frameSkip + 1) % 2;
+        
+        FlipScreen();
+        sceDisplayWaitVblankStart();
     }
     return;
-#endif
+#else
+    unsigned long long targetFreq = SDL_GetPerformanceFrequency() / Engine.refreshRate;
+    unsigned long long curTicks   = 0;
+    unsigned long long prevTicks  = 0;
 
     while (running) {
 #if !RETRO_USE_ORIGINAL_CODE
@@ -651,6 +663,7 @@ void RetroEngine::Run()
 #endif
         }
     }
+#endif
 
     ReleaseAudioDevice();
     ReleaseRenderDevice();
